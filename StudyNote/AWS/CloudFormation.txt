@@ -1,0 +1,233 @@
+Template
+text file - supported as yaml or json
+blueprint input into CF
+describes end state of the infrastructure
+
+Stack
+When CF executes a template, it creates a stack.
+To update the resources within a template, you need to update a stack.
+A set of related resources as a single unit is called a stack.
+
+Change Set
+Summary of proposed changes.
+Before updating a stack, you can generate a change set.
+a change set allows you to see how the change swill impact your running resources.
+This can be very important for live system.
+For example, renaming an RDS instance will:
+1. create a new one
+2. delete the old one
+Potentially causing data loss.
+
+YAML template format
+AWSTemplateFormatVersion: "version date"
+Description: String
+Metadata:
+  ... template medadata ...
+Parameters:
+  ... set of parameters ...
+Mappings:
+  ... set of mappings ...
+Conditions: 
+  ... set of conditions ...
+Transform:
+  ... set of transforms ...
+Resources: # only required part
+  ... set of resources ...
+Outputs:
+  ... set of outputs...
+    
+Template.Resources
+Resources:
+  Logical ID:
+    Type: Resource type
+    Properties:
+      Set of properties
+
+EC2 Example
+Resources:
+  MyEC2Instance:
+    Type: "AWS::EC2::Instance"
+    Properties:
+      ImageId: :ami-43874721"
+      InstanceType: t2.micro
+    
+S3 Example
+Resources:
+  MyS3Bucket:
+    Type: AWS::S3::Bucket
+    Properties:
+      BucketName: HelloWorldWebsite
+      AccessControl: PublicRead
+      WebsiteConfiguration:
+        IndexDocument: index.html
+        
+Security Group Example
+Resources:
+  MySecurityGroup:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupDescription: Enable SSH access via port 22
+      SecurityGroupIngress:
+        - IpProtocol: tcp
+          FromPort: '22'
+          ToPort: '22'
+          CidrIp: 0.0.0.0/0
+
+Intrinsic Functions
+https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/intrinsic-function-reference.html
+Built-in functions that help you manage your stacks.
+i.e. Join: appends a set of values into a single value
+JSON
+{"Fn::Join":["delimiter",[comma-delimited list of values]]}
+{"Fn::Join":[":", ["a","b","c"]]} = "a:b:c"
+YMAL
+!Join[delimiter,[comma-delimited list of values]]
+!Join[":",[a,b,c]] = "a:b:c"
+################################################
+Resources:
+  Ec2Instance:
+    Type: "AWS::EC2::Instance"
+    Properties:
+      InstanceType: t2.micro
+      ImageId: ami-43874721 # Amazon Linux AMI in Sydney
+      Tags:
+        - Key: "Name"
+          Value: !Join [ " ", [ EC2, Instance, with, Fn, Join ] ]
+################################################
+
+Multiple Resources
+CF comes to life with more resources.
+Order of creation is important. i.e. SG and EC2. 
+################################################
+Resources:
+  Ec2Instance:
+    Type: 'AWS::EC2::Instance'
+    Properties:
+      InstanceType: t2.micro
+      ImageId: ami-43874721 # Amazon Linux AMI in Sydney
+      Tags:
+        - Key: "Name"
+          Value: !Join: [" ", [EC2, Instance, with, Fn, 'Join]]
+      SecurityGroups:
+        - !Ref: MySecurityGroup # See here 
+  MySecurityGroup: # And here
+    Type: 'AWS::EC2::SecurityGroup'
+    Properties:
+      GroupDescription: Enable SSH access via port 22
+      SecurityGroupIngress:
+        - IpProtocol: tcp
+          FromPort: '22'
+          ToPort: '22'
+          CidrIp: 0.0.0.0/0
+################################################
+        
+Pseudo Parameters
+https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/pseudo-parameter-reference.html
+Parameters that are predefined by CF
+Similar to Env variables - can be relied upon to be set correctly
+Reference the parameters with the Ref Intrinsic Function
+JSON
+{
+    "Resources": {
+        "MySecurityGroup" : {
+            "Type":"AWS::EC2::SecurityGroup",
+            "Properties": {
+                "GroupDescription": {
+                    "Ref": "AWS:Region" # Pseudo variable
+                }
+            }
+        }
+    }
+}
+YAML
+Resources:
+  MySecurityGroup:
+    Type: 'AWS::EC2::SecurityGroup'
+    Properties:
+      GroupDescription:
+        !Ref AWS::Region
+Some pseudo parameters
+AWS::AccountId - returns the AWS accountID of the account
+AWS::NotificationARNs - returns the list of notification ARNs for the current stack
+AWS::StackId - returns the ID of the stack
+AWS::StackName - Returns the name of the stack
+AWS::Region - Returns a string representing the AWS region in which the resource is being created
+################################################
+Resources:
+  Ec2Instance:
+    Type: "AWS::EC2::Instance"
+    Properties:
+      InstanceType: t2.micro
+      ImageId: ami-43874721 # Amazon Linux AMI in Sydney
+      SecurityGroups: 
+        - !Ref MySecurityGroup
+      Tags:
+        - Key: "Name"
+          Value: !Join 
+            - ""
+            - - "EC2 Instance for "
+              - !Ref AWS::Region
+  MySecurityGroup:
+    Type: "AWS::EC2::SecurityGroup"
+    Properties:
+      GroupDescription: Enable SSH access via port 22
+      SecurityGroupIngress:
+        - IpProtocol: tcp
+          FromPort: "22"
+          ToPort: "22"
+          CidrIp: 0.0.0.0/0
+################################################
+          
+Mapping
+Mappings enable you to use an input value to determine another value.
+For example: How to determine the AMI ID based on the region? Mapping
+To solve this, let's use what we've learned so far:
+1. Pseudo parameters
+2. Intrinsic functions
+3. Mapping
+How to use the FindInMap function
+JSON
+{"Fn:FindInMap":["MapName","TopLevelKey","SecondLevelKey"]}
+YAML
+!FindInMap[MapName,TopLevelKey,SecondLevelKey]
+################################################
+Mappings:
+  RegionMap:
+    us-east-1:
+      AMI: ami-1853ac65
+    us-west-1:
+      AMI: ami-bf5540df
+    eu-west-1:
+      AMI: ami-3bfab942
+    ap-southeast-1:
+      AMI: ami-e2adf99e
+    ap-southeast-2:
+      AMI: ami-43874721
+Resources:
+  Ec2Instance:
+    Type: 'AWS::EC2::Instance'
+    Properties:
+      InstanceType: t2.micro
+      ImageId:
+        Fn::FindInMap:
+        - RegionMap
+        - !Ref AWS::Region
+        - AMI
+      SecurityGroups: 
+        - !Ref MySecurityGroup
+      Tags:
+        - Key: "Name"
+          Value: !Join 
+            - ""
+            - - "EC2 Instance for "
+              - !Ref AWS::Region
+  MySecurityGroup:
+    Type: 'AWS::EC2::SecurityGroup'
+    Properties:
+      GroupDescription: Enable SSH access via port 22
+      SecurityGroupIngress:
+        - IpProtocol: tcp
+          FromPort: '22'
+          ToPort: '22'
+          CidrIp: 0.0.0.0/0
+################################################
