@@ -1,14 +1,16 @@
-Template
+- Template
 text file - supported as yaml or json
 blueprint input into CF
 describes end state of the infrastructure
 
-Stack
+
+- Stack
 When CF executes a template, it creates a stack.
 To update the resources within a template, you need to update a stack.
 A set of related resources as a single unit is called a stack.
 
-Change Set
+
+- Change Set
 Summary of proposed changes.
 Before updating a stack, you can generate a change set.
 a change set allows you to see how the change swill impact your running resources.
@@ -18,7 +20,8 @@ For example, renaming an RDS instance will:
 2. delete the old one
 Potentially causing data loss.
 
-YAML template format
+
+- YAML template format
 AWSTemplateFormatVersion: "version date"
 Description: String
 Metadata:
@@ -36,14 +39,16 @@ Resources: # only required part
 Outputs:
   ... set of outputs...
     
-Template.Resources
+    
+- Template.Resources
 Resources:
   Logical ID:
     Type: Resource type
     Properties:
       Set of properties
 
-EC2 Example
+
+- EC2 Example
 Resources:
   MyEC2Instance:
     Type: "AWS::EC2::Instance"
@@ -51,7 +56,8 @@ Resources:
       ImageId: :ami-43874721"
       InstanceType: t2.micro
     
-S3 Example
+    
+- S3 Example
 Resources:
   MyS3Bucket:
     Type: AWS::S3::Bucket
@@ -61,7 +67,8 @@ Resources:
       WebsiteConfiguration:
         IndexDocument: index.html
         
-Security Group Example
+        
+- Security Group Example
 Resources:
   MySecurityGroup:
     Type: AWS::EC2::SecurityGroup
@@ -73,7 +80,8 @@ Resources:
           ToPort: '22'
           CidrIp: 0.0.0.0/0
 
-Intrinsic Functions
+
+- Intrinsic Functions
 https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/intrinsic-function-reference.html
 Built-in functions that help you manage your stacks.
 i.e. Join: appends a set of values into a single value
@@ -95,7 +103,8 @@ Resources:
           Value: !Join [ " ", [ EC2, Instance, with, Fn, Join ] ]
 ################################################
 
-Multiple Resources
+
+- Multiple Resources
 CF comes to life with more resources.
 Order of creation is important. i.e. SG and EC2. 
 ################################################
@@ -121,7 +130,8 @@ Resources:
           CidrIp: 0.0.0.0/0
 ################################################
         
-Pseudo Parameters
+        
+- Pseudo Parameters
 https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/pseudo-parameter-reference.html
 Parameters that are predefined by CF
 Similar to Env variables - can be relied upon to be set correctly
@@ -178,7 +188,8 @@ Resources:
           CidrIp: 0.0.0.0/0
 ################################################
           
-Mapping
+          
+- Mapping
 Mappings enable you to use an input value to determine another value.
 For example: How to determine the AMI ID based on the region? Mapping
 To solve this, let's use what we've learned so far:
@@ -232,7 +243,8 @@ Resources:
           CidrIp: 0.0.0.0/0
 ################################################
 
-Input Parameters
+
+- Input Parameters
 Input parameters enable us to input custom values to our template.
 They are defined within the top level Parameters section.
 Each parameter must be assigned a value at runtime.
@@ -312,3 +324,83 @@ Resources:
           CidrIp: 0.0.0.0/0
 ################################################
     
+    
+- Outputs
+Outputs enable us to get access to info about resources within a stack.
+For example:
+  Create an EC2 instance, and output the public ip or DNS.
+Outputs are defined within the top level Outputs section of the Template.
+Once the stack is built, the Outputs are available under the Output tab in CF.
+JSON
+"Outputs": {
+  "InstanceDns": {
+    "Description": 
+      "The Instance Dns",
+    "Value": {
+      "Fn::GetAtt": [
+        "EC2Instance",
+        "PublicDnsName"
+      ]
+    }
+  }
+}
+YAML
+Outputs:
+  InstanceDns:
+    Description:
+      The instance Dns
+    Value:
+      !GetAtt
+        - EC2Instance
+        - PublicDnsName
+################################################
+Parameters:
+  NameOfService:
+    Description: "The name of the service this stack is to be used for."
+    Type: String
+  KeyName:
+    Description: Name of an existing EC2 KeyPair to enable SSH access into the server
+    Type: AWS::EC2::KeyPair::KeyName
+Mappings:
+  RegionMap:
+    us-east-1:
+      AMI: ami-1853ac65
+    us-west-1:
+      AMI: ami-bf5540df
+    eu-west-1:
+      AMI: ami-3bfab942
+    ap-southeast-1:
+      AMI: ami-e2adf99e
+    ap-southeast-2:
+      AMI: ami-43874721
+Resources:
+  Ec2Instance:
+    Type: 'AWS::EC2::Instance'
+    Properties:
+      InstanceType: t2.micro
+      ImageId:
+        Fn::FindInMap:
+        - RegionMap
+        - !Ref AWS::Region
+        - AMI
+      SecurityGroups: 
+        - !Ref MySecurityGroup
+      Tags:
+        - Key: "Name"
+          Value: !Ref NameOfService
+      KeyName: !Ref KeyName
+  MySecurityGroup:
+    Type: 'AWS::EC2::SecurityGroup'
+    Properties:
+      GroupDescription: Enable SSH access via port 22
+      SecurityGroupIngress:
+        - IpProtocol: tcp
+          FromPort: '22'
+          ToPort: '22'
+          CidrIp: 0.0.0.0/0
+Outputs:
+  ServerDns:
+    Value: !GetAtt
+      - Ec2Instance
+      - PublicDnsName
+################################################
